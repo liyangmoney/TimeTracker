@@ -33,7 +33,7 @@ class MainActivity : AppCompatActivity() {
             if (isRunning) {
                 val current = System.currentTimeMillis() - startTime
                 timerDisplay.text = formatDurationWithMs(current)
-                handler.postDelayed(this, 10)
+                handler.postDelayed(this, 50)  // 改为 50ms (20fps)，减少刷新频率
             }
         }
     }
