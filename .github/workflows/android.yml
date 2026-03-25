@@ -55,8 +55,13 @@ jobs:
     - name: Check APK exists
       run: |
         echo "=== Checking output directories..." | tee logs/04-check.log
+        echo "Current directory: $(pwd)" | tee -a logs/04-check.log
+        echo "Listing app/build directory:" | tee -a logs/04-check.log
+        ls -la app/build/ 2>&1 | tee -a logs/04-check.log || echo "No app/build directory" | tee -a logs/04-check.log
+        echo "Finding APK files:" | tee -a logs/04-check.log
         find app/build -name "*.apk" -type f 2>&1 | tee -a logs/04-check.log
-        ls -la app/build/outputs/apk/release/ 2>&1 | tee -a logs/04-check.log || true
+        echo "Checking outputs/apk/release:" | tee -a logs/04-check.log
+        ls -la app/build/outputs/apk/release/ 2>&1 | tee -a logs/04-check.log || echo "No release directory" | tee -a logs/04-check.log
         echo "=== Step 4: Check Results ==="
         cat logs/04-check.log
 
