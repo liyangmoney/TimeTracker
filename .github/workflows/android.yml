@@ -23,21 +23,36 @@ jobs:
     - name: Setup Android SDK
       uses: android-actions/setup-android@v2
 
+    - name: Create Keystore
+      env:
+        KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+      run: |
+        if [ -n "$KEYSTORE_BASE64" ]; then
+          echo "$KEYSTORE_BASE64" | base64 -di > app/keystore.jks
+        else
+          # 创建临时签名密钥
+          keytool -genkey -v -keystore app/keystore.jks -alias timetracker -keyalg RSA -keysize 2048 -validity 10000 -storepass timetracker123 -keypass timetracker123 -dname "CN=TimeTracker"
+        fi
+
     - name: Grant execute permission for gradlew
       run: chmod +x ./gradlew
 
-    - name: Build Debug APK
-      run: ./gradlew assembleDebug
+    - name: Build Signed APK
+      env:
+        KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD || 'timetracker123' }}
+        KEY_ALIAS: ${{ secrets.KEY_ALIAS || 'timetracker' }}
+        KEY_PASSWORD: ${{ secrets.KEY_PASSWORD || 'timetracker123' }}
+      run: ./gradlew assembleRelease
 
     - name: Check APK exists
-      run: ls -la app/build/outputs/apk/debug/
+      run: ls -la app/build/outputs/apk/release/
 
-    - name: Upload Debug APK to Release
+    - name: Upload Signed APK to Release
       uses: softprops/action-gh-release@v1
       if: github.ref == 'refs/heads/main'
       with:
         tag_name: v${{ github.run_number }}
         name: Release v${{ github.run_number }}
-        files: app/build/outputs/apk/debug/*.apk
+        files: app/build/outputs/apk/release/*.apk
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
