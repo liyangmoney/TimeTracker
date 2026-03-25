@@ -44,12 +44,12 @@ jobs:
         KEY_ALIAS: timetracker
         KEY_PASSWORD: timetracker123
       run: |
+        set -x
+        echo "=== Starting Gradle Build ==="
         ./gradlew assembleRelease --stacktrace --no-daemon 2>&1 | tee logs/03-build.log
         BUILD_EXIT_CODE=${PIPESTATUS[0]}
-        echo "=== Step 3: Build Log (first 100 lines) ==="
-        head -100 logs/03-build.log
-        echo "..."
-        echo "=== Build Exit Code: $BUILD_EXIT_CODE ==="
+        echo "=== Build completed with exit code: $BUILD_EXIT_CODE ==="
+        echo "BUILD_EXIT_CODE=$BUILD_EXIT_CODE" >> $GITHUB_ENV
         exit $BUILD_EXIT_CODE
 
     - name: Check APK exists
