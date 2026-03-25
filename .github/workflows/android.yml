@@ -46,7 +46,7 @@ jobs:
       run: |
         set -x
         echo "=== Starting Gradle Build ==="
-        ./gradlew assembleRelease --stacktrace --no-daemon 2>&1 | tee logs/03-build.log
+        bash ./gradlew assembleRelease --stacktrace --no-daemon 2>&1 | tee logs/03-build.log
         BUILD_EXIT_CODE=${PIPESTATUS[0]}
         echo "=== Build completed with exit code: $BUILD_EXIT_CODE ==="
         echo "BUILD_EXIT_CODE=$BUILD_EXIT_CODE" >> $GITHUB_ENV
