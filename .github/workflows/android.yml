@@ -25,15 +25,16 @@ jobs:
 
     - name: Create Keystore
       run: |
-        echo "=== Creating Keystore ==="
+        echo "=== Step 1: Creating Keystore ==="
         keytool -genkey -v -keystore app/keystore.jks -alias timetracker -keyalg RSA -keysize 2048 -validity 10000 -storepass timetracker123 -keypass timetracker123 -dname "CN=TimeTracker"
-        echo "Keystore created successfully"
+        echo "✅ Keystore created"
 
     - name: Grant execute permission for gradlew
       run: |
-        echo "=== Setting up Gradlew ==="
+        echo "=== Step 2: Setting up Gradlew ==="
         chmod +x ./gradlew
         ls -la ./gradlew
+        echo "✅ Gradlew ready"
 
     - name: Build Release APK
       env:
@@ -41,23 +42,26 @@ jobs:
         KEY_ALIAS: timetracker
         KEY_PASSWORD: timetracker123
       run: |
-        echo "=== Building Release APK ==="
-        bash ./gradlew assembleRelease --stacktrace --no-daemon
-        echo "=== Build completed ==="
+        echo "=== Step 3: Building Release APK ==="
+        bash ./gradlew assembleRelease --stacktrace --no-daemon || {
+          echo "❌ BUILD FAILED!"
+          echo "=== Listing project structure ==="
+          ls -la
+          echo "=== Checking gradle files ==="
+          ls -la gradle/wrapper/
+          exit 1
+        }
+        echo "✅ Build completed"
 
     - name: Check APK exists
       run: |
-        echo "=== Checking for APK files ==="
+        echo "=== Step 4: Checking APK ==="
         echo "Current directory: $(pwd)"
-        echo ""
-        echo "Listing app/build contents:"
-        ls -la app/build/ 2>&1 || echo "ERROR: app/build/ does not exist"
-        echo ""
-        echo "Finding all APK files:"
-        find . -name "*.apk" -type f 2>&1 || echo "ERROR: No APK files found"
-        echo ""
-        echo "Checking release directory:"
-        ls -la app/build/outputs/apk/release/ 2>&1 || echo "ERROR: release directory does not exist"
+        ls -la app/build/outputs/apk/release/ || {
+          echo "❌ APK not found!"
+          exit 1
+        }
+        echo "✅ APK found"
 
     - name: Upload Release APK
       uses: softprops/action-gh-release@v1
