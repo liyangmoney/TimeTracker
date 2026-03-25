@@ -27,11 +27,16 @@ jobs:
 
     - name: Create Keystore
       run: |
+        mkdir -p logs
         keytool -genkey -v -keystore app/keystore.jks -alias timetracker -keyalg RSA -keysize 2048 -validity 10000 -storepass timetracker123 -keypass timetracker123 -dname "CN=TimeTracker" 2>&1 | tee logs/01-keystore.log
+        echo "=== Step 1: Keystore Creation ==="
+        cat logs/01-keystore.log
 
     - name: Grant execute permission for gradlew
       run: |
         chmod +x ./gradlew 2>&1 | tee logs/02-gradlew.log
+        echo "=== Step 2: Gradlew Permission ==="
+        cat logs/02-gradlew.log
 
     - name: Build Release APK
       env:
@@ -39,16 +44,21 @@ jobs:
         KEY_ALIAS: timetracker
         KEY_PASSWORD: timetracker123
       run: |
-        mkdir -p logs
         ./gradlew assembleRelease --stacktrace --no-daemon 2>&1 | tee logs/03-build.log
-        echo "BUILD_EXIT_CODE=${PIPESTATUS[0]}" >> $GITHUB_ENV
+        BUILD_EXIT_CODE=${PIPESTATUS[0]}
+        echo "=== Step 3: Build Log (first 100 lines) ==="
+        head -100 logs/03-build.log
+        echo "..."
+        echo "=== Build Exit Code: $BUILD_EXIT_CODE ==="
+        exit $BUILD_EXIT_CODE
 
     - name: Check APK exists
       run: |
-        mkdir -p logs
         echo "=== Checking output directories..." | tee logs/04-check.log
         find app/build -name "*.apk" -type f 2>&1 | tee -a logs/04-check.log
         ls -la app/build/outputs/apk/release/ 2>&1 | tee -a logs/04-check.log || true
+        echo "=== Step 4: Check Results ==="
+        cat logs/04-check.log
 
     - name: Upload logs to repo
       if: always()
