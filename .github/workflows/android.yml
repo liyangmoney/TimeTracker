@@ -12,6 +12,8 @@ jobs:
     
     steps:
     - uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
     
     - name: Set up JDK 17
       uses: actions/setup-java@v4
@@ -25,10 +27,11 @@ jobs:
 
     - name: Create Keystore
       run: |
-        keytool -genkey -v -keystore app/keystore.jks -alias timetracker -keyalg RSA -keysize 2048 -validity 10000 -storepass timetracker123 -keypass timetracker123 -dname "CN=TimeTracker"
+        keytool -genkey -v -keystore app/keystore.jks -alias timetracker -keyalg RSA -keysize 2048 -validity 10000 -storepass timetracker123 -keypass timetracker123 -dname "CN=TimeTracker" 2>&1 | tee logs/01-keystore.log
 
     - name: Grant execute permission for gradlew
-      run: chmod +x ./gradlew
+      run: |
+        chmod +x ./gradlew 2>&1 | tee logs/02-gradlew.log
 
     - name: Build Release APK
       env:
@@ -36,17 +39,25 @@ jobs:
         KEY_ALIAS: timetracker
         KEY_PASSWORD: timetracker123
       run: |
-        ./gradlew assembleRelease --stacktrace --no-daemon 2>&1 | tee build.log
-        exit ${PIPESTATUS[0]}
+        mkdir -p logs
+        ./gradlew assembleRelease --stacktrace --no-daemon 2>&1 | tee logs/03-build.log
+        echo "BUILD_EXIT_CODE=${PIPESTATUS[0]}" >> $GITHUB_ENV
 
     - name: Check APK exists
+      run: |
+        mkdir -p logs
+        echo "=== Checking output directories..." | tee logs/04-check.log
+        find app/build -name "*.apk" -type f 2>&1 | tee -a logs/04-check.log
+        ls -la app/build/outputs/apk/release/ 2>&1 | tee -a logs/04-check.log || true
+
+    - name: Upload logs to repo
       if: always()
       run: |
-        echo "=== Build Log ==="
-        cat build.log || true
-        echo "=== Checking output directories..."
-        find app/build -name "*.apk" -type f 2>/dev/null || echo "No APK found"
-        ls -la app/build/outputs/apk/release/ 2>/dev/null || true
+        git config --global user.name "GitHub Actions"
+        git config --global user.email "actions@github.com"
+        git add logs/
+        git commit -m "Add build logs from run ${{ github.run_number }}" || echo "No changes to commit"
+        git push || echo "Push failed"
 
     - name: Upload Release APK
       uses: softprops/action-gh-release@v1
