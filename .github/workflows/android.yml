@@ -23,45 +23,41 @@ jobs:
     - name: Setup Android SDK
       uses: android-actions/setup-android@v2
 
+    - name: Check project structure
+      run: |
+        echo "=== Checking project ==="
+        ls -la
+        echo ""
+        echo "=== Checking gradlew ==="
+        file ./gradlew
+        head -5 ./gradlew
+        echo ""
+        echo "=== Checking build.gradle ==="
+        ls -la *.gradle
+
     - name: Create Keystore
       run: |
-        echo "=== Step 1: Creating Keystore ==="
+        echo "=== Creating Keystore ==="
         keytool -genkey -v -keystore app/keystore.jks -alias timetracker -keyalg RSA -keysize 2048 -validity 10000 -storepass timetracker123 -keypass timetracker123 -dname "CN=TimeTracker"
-        echo "✅ Keystore created"
 
-    - name: Grant execute permission for gradlew
-      run: |
-        echo "=== Step 2: Setting up Gradlew ==="
-        chmod +x ./gradlew
-        ls -la ./gradlew
-        echo "✅ Gradlew ready"
-
-    - name: Build Release APK
+    - name: Build with Gradle directly
       env:
         KEYSTORE_PASSWORD: timetracker123
         KEY_ALIAS: timetracker
         KEY_PASSWORD: timetracker123
       run: |
-        echo "=== Step 3: Building Release APK ==="
-        bash ./gradlew assembleRelease --stacktrace --no-daemon || {
+        echo "=== Building with system gradle ==="
+        gradle assembleRelease --stacktrace --project-dir . || {
           echo "❌ BUILD FAILED!"
-          echo "=== Listing project structure ==="
-          ls -la
-          echo "=== Checking gradle files ==="
-          ls -la gradle/wrapper/
           exit 1
         }
         echo "✅ Build completed"
 
-    - name: Check APK exists
+    - name: Check APK
       run: |
-        echo "=== Step 4: Checking APK ==="
-        echo "Current directory: $(pwd)"
-        ls -la app/build/outputs/apk/release/ || {
-          echo "❌ APK not found!"
-          exit 1
-        }
-        echo "✅ APK found"
+        echo "=== Checking APK ==="
+        find . -name "*.apk" -type f
+        ls -la app/build/outputs/apk/release/ 2>&1 || echo "No release dir"
 
     - name: Upload Release APK
       uses: softprops/action-gh-release@v1
