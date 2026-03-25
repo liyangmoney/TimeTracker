@@ -1,14 +1,11 @@
 package com.example.timetracker
 
 import android.app.AlertDialog
-import android.content.Context
-import android.content.SharedPreferences
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import android.widget.Button
-import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -18,20 +15,18 @@ import java.util.*
 
 class MainActivity : AppCompatActivity() {
     
-    private lateinit var taskNameInput: EditText
     private lateinit var timerDisplay: TextView
     private lateinit var startStopButton: Button
     private lateinit var statsButton: Button
     private lateinit var clearButton: Button
     private lateinit var recordsContainer: LinearLayout
+    private lateinit var recordsTitle: TextView
     
     private var isRunning = false
     private var startTime: Long = 0
-    private var elapsedTime: Long = 0
     private val records = mutableListOf<TimeRecord>()
     private val dateFormat = SimpleDateFormat("MM-dd HH:mm", Locale.getDefault())
     private val handler = Handler(Looper.getMainLooper())
-    private lateinit var prefs: SharedPreferences
     
     private val updateTimer = object : Runnable {
         override fun run() {
@@ -44,7 +39,6 @@ class MainActivity : AppCompatActivity() {
     }
     
     data class TimeRecord(
-        val taskName: String,
         val startTime: Long,
         val endTime: Long,
         val duration: Long
@@ -52,7 +46,6 @@ class MainActivity : AppCompatActivity() {
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        prefs = getSharedPreferences("TimeTracker", Context.MODE_PRIVATE)
         
         val scrollView = ScrollView(this)
         val mainLayout = LinearLayout(this).apply {
@@ -60,18 +53,10 @@ class MainActivity : AppCompatActivity() {
             setPadding(32, 32, 32, 32)
         }
         
-        // 任务名称输入
-        taskNameInput = EditText(this).apply {
-            hint = "任务名称"
-            setText(prefs.getString("lastTaskName", ""))
-            setPadding(16, 16, 16, 16)
-        }
-        mainLayout.addView(taskNameInput)
-        
         // 计时器显示
         timerDisplay = TextView(this).apply {
             text = "00:00:00.000"
-            textSize = 36f
+            textSize = 48f
             gravity = android.view.Gravity.CENTER
             setPadding(32, 32, 32, 32)
         }
@@ -103,8 +88,8 @@ class MainActivity : AppCompatActivity() {
         mainLayout.addView(buttonLayout)
         
         // 记录标题
-        val recordsTitle = TextView(this).apply {
-            text = "计时记录 (${records.size})"
+        recordsTitle = TextView(this).apply {
+            text = "计时记录 (0)"
             textSize = 18f
             setPadding(0, 32, 0, 16)
         }
@@ -127,13 +112,11 @@ class MainActivity : AppCompatActivity() {
             val endTime = System.currentTimeMillis()
             val duration = endTime - startTime
             
-            val taskName = taskNameInput.text.toString()
-            if (taskName.isNotBlank() && duration > 100) {
-                val record = TimeRecord(taskName, startTime, endTime, duration)
+            if (duration > 100) {
+                val record = TimeRecord(startTime, endTime, duration)
                 records.add(0, record)
                 addRecordView(record)
-                // 保存任务名称
-                prefs.edit().putString("lastTaskName", taskName).apply()
+                updateRecordsTitle()
             }
             
             isRunning = false
@@ -141,13 +124,10 @@ class MainActivity : AppCompatActivity() {
             timerDisplay.text = formatDurationWithMs(duration)
         } else {
             // 开始计时
-            val taskName = taskNameInput.text.toString()
-            if (taskName.isNotBlank()) {
-                startTime = System.currentTimeMillis()
-                isRunning = true
-                startStopButton.text = "停止计时"
-                handler.post(updateTimer)
-            }
+            startTime = System.currentTimeMillis()
+            isRunning = true
+            startStopButton.text = "停止计时"
+            handler.post(updateTimer)
         }
     }
     
@@ -164,16 +144,9 @@ class MainActivity : AppCompatActivity() {
             }
         }
         
-        val nameText = TextView(this).apply {
-            text = record.taskName
-            textSize = 16f
-            setPadding(0, 0, 0, 4)
-        }
-        recordView.addView(nameText)
-        
         val durationText = TextView(this).apply {
             text = "时长: ${formatDurationWithMs(record.duration)}"
-            textSize = 14f
+            textSize = 16f
             setTextColor(0xFF6750A4.toInt())
         }
         recordView.addView(durationText)
@@ -186,6 +159,10 @@ class MainActivity : AppCompatActivity() {
         recordView.addView(timeText)
         
         recordsContainer.addView(recordView, 0)
+    }
+    
+    private fun updateRecordsTitle() {
+        recordsTitle.text = "计时记录 (${records.size})"
     }
     
     private fun formatDurationWithMs(durationMs: Long): String {
@@ -235,6 +212,7 @@ class MainActivity : AppCompatActivity() {
             .setPositiveButton("确定") { _, _ ->
                 records.clear()
                 recordsContainer.removeAllViews()
+                updateRecordsTitle()
             }
             .setNegativeButton("取消", null)
             .show()
