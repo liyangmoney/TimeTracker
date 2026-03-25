@@ -1,9 +1,13 @@
 package com.example.timetracker
 
+import android.app.AlertDialog
+import android.content.Context
+import android.content.SharedPreferences
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.os.SystemClock
 import android.widget.Button
-import android.widget.Chronometer
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -15,14 +19,29 @@ import java.util.*
 class MainActivity : AppCompatActivity() {
     
     private lateinit var taskNameInput: EditText
-    private lateinit var timerDisplay: Chronometer
+    private lateinit var timerDisplay: TextView
     private lateinit var startStopButton: Button
+    private lateinit var statsButton: Button
+    private lateinit var clearButton: Button
     private lateinit var recordsContainer: LinearLayout
     
     private var isRunning = false
     private var startTime: Long = 0
+    private var elapsedTime: Long = 0
     private val records = mutableListOf<TimeRecord>()
     private val dateFormat = SimpleDateFormat("MM-dd HH:mm", Locale.getDefault())
+    private val handler = Handler(Looper.getMainLooper())
+    private lateinit var prefs: SharedPreferences
+    
+    private val updateTimer = object : Runnable {
+        override fun run() {
+            if (isRunning) {
+                val current = System.currentTimeMillis() - startTime
+                timerDisplay.text = formatDurationWithMs(current)
+                handler.postDelayed(this, 10)
+            }
+        }
+    }
     
     data class TimeRecord(
         val taskName: String,
@@ -33,8 +52,8 @@ class MainActivity : AppCompatActivity() {
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        prefs = getSharedPreferences("TimeTracker", Context.MODE_PRIVATE)
         
-        // 创建主布局
         val scrollView = ScrollView(this)
         val mainLayout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -44,28 +63,48 @@ class MainActivity : AppCompatActivity() {
         // 任务名称输入
         taskNameInput = EditText(this).apply {
             hint = "任务名称"
+            setText(prefs.getString("lastTaskName", ""))
             setPadding(16, 16, 16, 16)
         }
         mainLayout.addView(taskNameInput)
         
         // 计时器显示
-        timerDisplay = Chronometer(this).apply {
-            textSize = 48f
+        timerDisplay = TextView(this).apply {
+            text = "00:00:00.000"
+            textSize = 36f
             gravity = android.view.Gravity.CENTER
             setPadding(32, 32, 32, 32)
         }
         mainLayout.addView(timerDisplay)
         
-        // 开始/停止按钮
+        // 按钮行
+        val buttonLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+        }
+        
         startStopButton = Button(this).apply {
             text = "开始计时"
             setOnClickListener { toggleTimer() }
         }
-        mainLayout.addView(startStopButton)
+        buttonLayout.addView(startStopButton)
+        
+        statsButton = Button(this).apply {
+            text = "统计"
+            setOnClickListener { showStats() }
+        }
+        buttonLayout.addView(statsButton)
+        
+        clearButton = Button(this).apply {
+            text = "清理"
+            setOnClickListener { clearRecords() }
+        }
+        buttonLayout.addView(clearButton)
+        
+        mainLayout.addView(buttonLayout)
         
         // 记录标题
         val recordsTitle = TextView(this).apply {
-            text = "计时记录"
+            text = "计时记录 (${records.size})"
             textSize = 18f
             setPadding(0, 32, 0, 16)
         }
@@ -84,32 +123,30 @@ class MainActivity : AppCompatActivity() {
     private fun toggleTimer() {
         if (isRunning) {
             // 停止计时
+            handler.removeCallbacks(updateTimer)
             val endTime = System.currentTimeMillis()
             val duration = endTime - startTime
-            timerDisplay.stop()
             
             val taskName = taskNameInput.text.toString()
-            if (taskName.isNotBlank() && duration > 1000) {
+            if (taskName.isNotBlank() && duration > 100) {
                 val record = TimeRecord(taskName, startTime, endTime, duration)
                 records.add(0, record)
                 addRecordView(record)
+                // 保存任务名称
+                prefs.edit().putString("lastTaskName", taskName).apply()
             }
             
             isRunning = false
             startStopButton.text = "开始计时"
-            taskNameInput.isEnabled = true
-            taskNameInput.setText("")
+            timerDisplay.text = formatDurationWithMs(duration)
         } else {
             // 开始计时
             val taskName = taskNameInput.text.toString()
             if (taskName.isNotBlank()) {
                 startTime = System.currentTimeMillis()
-                timerDisplay.base = SystemClock.elapsedRealtime()
-                timerDisplay.start()
-                
                 isRunning = true
                 startStopButton.text = "停止计时"
-                taskNameInput.isEnabled = false
+                handler.post(updateTimer)
             }
         }
     }
@@ -135,7 +172,7 @@ class MainActivity : AppCompatActivity() {
         recordView.addView(nameText)
         
         val durationText = TextView(this).apply {
-            text = "时长: ${formatDuration(record.duration)}"
+            text = "时长: ${formatDurationWithMs(record.duration)}"
             textSize = 14f
             setTextColor(0xFF6750A4.toInt())
         }
@@ -151,10 +188,55 @@ class MainActivity : AppCompatActivity() {
         recordsContainer.addView(recordView, 0)
     }
     
-    private fun formatDuration(durationMs: Long): String {
+    private fun formatDurationWithMs(durationMs: Long): String {
+        val ms = durationMs % 1000
         val seconds = (durationMs / 1000) % 60
         val minutes = (durationMs / (1000 * 60)) % 60
         val hours = durationMs / (1000 * 60 * 60)
-        return String.format("%02d:%02d:%02d", hours, minutes, seconds)
+        return String.format("%02d:%02d:%02d.%03d", hours, minutes, seconds, ms)
+    }
+    
+    private fun showStats() {
+        if (records.isEmpty()) {
+            AlertDialog.Builder(this)
+                .setTitle("统计")
+                .setMessage("暂无记录")
+                .setPositiveButton("确定", null)
+                .show()
+            return
+        }
+        
+        val durations = records.map { it.duration }
+        val min = durations.minOrNull() ?: 0
+        val max = durations.maxOrNull() ?: 0
+        val avg = durations.average().toLong()
+        val total = durations.sum()
+        
+        val message = """
+            记录数: ${records.size}
+            
+            最短: ${formatDurationWithMs(min)}
+            最长: ${formatDurationWithMs(max)}
+            平均: ${formatDurationWithMs(avg)}
+            总计: ${formatDurationWithMs(total)}
+        """.trimIndent()
+        
+        AlertDialog.Builder(this)
+            .setTitle("统计信息")
+            .setMessage(message)
+            .setPositiveButton("确定", null)
+            .show()
+    }
+    
+    private fun clearRecords() {
+        AlertDialog.Builder(this)
+            .setTitle("清理记录")
+            .setMessage("确定要清空所有记录吗？")
+            .setPositiveButton("确定") { _, _ ->
+                records.clear()
+                recordsContainer.removeAllViews()
+            }
+            .setNegativeButton("取消", null)
+            .show()
     }
 }
