@@ -35,17 +35,22 @@ jobs:
         KEYSTORE_PASSWORD: timetracker123
         KEY_ALIAS: timetracker
         KEY_PASSWORD: timetracker123
-      run: ./gradlew assembleRelease --info
+      run: |
+        ./gradlew assembleRelease --stacktrace --no-daemon 2>&1 | tee build.log
+        exit ${PIPESTATUS[0]}
 
     - name: Check APK exists
+      if: always()
       run: |
-        echo "Checking output directories..."
-        find app/build -name "*.apk" -type f 2>/dev/null
-        ls -la app/build/outputs/apk/ 2>/dev/null || true
+        echo "=== Build Log ==="
+        cat build.log || true
+        echo "=== Checking output directories..."
+        find app/build -name "*.apk" -type f 2>/dev/null || echo "No APK found"
+        ls -la app/build/outputs/apk/release/ 2>/dev/null || true
 
     - name: Upload Release APK
       uses: softprops/action-gh-release@v1
-      if: github.ref == 'refs/heads/main'
+      if: success() && github.ref == 'refs/heads/main'
       with:
         tag_name: v${{ github.run_number }}
         name: Release v${{ github.run_number }}
