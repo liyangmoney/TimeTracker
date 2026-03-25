@@ -1,3 +1,8 @@
 === Checking output directories...
+Current directory: /home/runner/work/TimeTracker/TimeTracker
+Listing app/build directory:
+ls: cannot access 'app/build/': No such file or directory
+Finding APK files:
 find: ‘app/build’: No such file or directory
+Checking outputs/apk/release:
 ls: cannot access 'app/build/outputs/apk/release/': No such file or directory
