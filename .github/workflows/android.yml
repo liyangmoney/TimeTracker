@@ -23,9 +23,17 @@ jobs:
     - name: Setup Android SDK
       uses: android-actions/setup-android@v2
 
-    - name: Fix Gradlew Line Endings
+    - name: Check and Fix Gradlew
       run: |
-        echo "=== Fixing gradlew permissions and line endings ==="
+        echo "=== Checking gradlew ==="
+        ls -la ./gradlew
+        file ./gradlew
+        head -3 ./gradlew
+        echo ""
+        echo "=== Checking wrapper jar ==="
+        ls -la gradle/wrapper/
+        echo ""
+        echo "=== Fixing line endings and permissions ==="
         sed -i 's/\r$//' ./gradlew
         chmod +x ./gradlew
         ls -la ./gradlew
@@ -42,7 +50,7 @@ jobs:
         KEY_PASSWORD: timetracker123
       run: |
         echo "=== Building with Gradlew ==="
-        ./gradlew assembleRelease --stacktrace --no-daemon
+        bash -x ./gradlew assembleRelease --stacktrace --no-daemon
         echo "✅ Build completed"
 
     - name: Check APK
