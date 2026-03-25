@@ -1,240 +1,160 @@
 package com.example.timetracker
 
 import android.os.Bundle
-import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import com.example.timetracker.ui.theme.TimeTrackerTheme
-import kotlinx.coroutines.delay
+import android.os.SystemClock
+import android.widget.Button
+import android.widget.Chronometer
+import android.widget.EditText
+import android.widget.LinearLayout
+import android.widget.ScrollView
+import android.widget.TextView
+import androidx.appcompat.app.AppCompatActivity
 import java.text.SimpleDateFormat
 import java.util.*
 
-class MainActivity : ComponentActivity() {
+class MainActivity : AppCompatActivity() {
+    
+    private lateinit var taskNameInput: EditText
+    private lateinit var timerDisplay: Chronometer
+    private lateinit var startStopButton: Button
+    private lateinit var recordsContainer: LinearLayout
+    
+    private var isRunning = false
+    private var startTime: Long = 0
+    private val records = mutableListOf<TimeRecord>()
+    private val dateFormat = SimpleDateFormat("MM-dd HH:mm", Locale.getDefault())
+    
+    data class TimeRecord(
+        val taskName: String,
+        val startTime: Long,
+        val endTime: Long,
+        val duration: Long
+    )
+    
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent {
-            TimeTrackerTheme {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
-                ) {
-                    TimeTrackerScreen()
-                }
-            }
+        
+        // 创建主布局
+        val scrollView = ScrollView(this)
+        val mainLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(32, 32, 32, 32)
         }
+        
+        // 任务名称输入
+        taskNameInput = EditText(this).apply {
+            hint = "任务名称"
+            setPadding(16, 16, 16, 16)
+        }
+        mainLayout.addView(taskNameInput)
+        
+        // 计时器显示
+        timerDisplay = Chronometer(this).apply {
+            textSize = 48f
+            gravity = android.view.Gravity.CENTER
+            setPadding(32, 32, 32, 32)
+        }
+        mainLayout.addView(timerDisplay)
+        
+        // 开始/停止按钮
+        startStopButton = Button(this).apply {
+            text = "开始计时"
+            setOnClickListener { toggleTimer() }
+        }
+        mainLayout.addView(startStopButton)
+        
+        // 记录标题
+        val recordsTitle = TextView(this).apply {
+            text = "计时记录"
+            textSize = 18f
+            setPadding(0, 32, 0, 16)
+        }
+        mainLayout.addView(recordsTitle)
+        
+        // 记录容器
+        recordsContainer = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+        }
+        mainLayout.addView(recordsContainer)
+        
+        scrollView.addView(mainLayout)
+        setContentView(scrollView)
     }
-}
-
-data class TimeRecord(
-    val id: String = UUID.randomUUID().toString(),
-    val taskName: String,
-    val startTime: Long,
-    val endTime: Long,
-    val duration: Long
-)
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun TimeTrackerScreen() {
-    var taskName by remember { mutableStateOf("") }
-    var isRunning by remember { mutableStateOf(false) }
-    var startTime by remember { mutableStateOf(0L) }
-    var currentTime by remember { mutableStateOf(0L) }
-    var records by remember { mutableStateOf(listOf<TimeRecord>()) }
     
-    // 计时器
-    LaunchedEffect(isRunning) {
+    private fun toggleTimer() {
         if (isRunning) {
-            while (isRunning) {
-                currentTime = System.currentTimeMillis()
-                delay(100)
+            // 停止计时
+            val endTime = System.currentTimeMillis()
+            val duration = endTime - startTime
+            timerDisplay.stop()
+            
+            val taskName = taskNameInput.text.toString()
+            if (taskName.isNotBlank() && duration > 1000) {
+                val record = TimeRecord(taskName, startTime, endTime, duration)
+                records.add(0, record)
+                addRecordView(record)
+            }
+            
+            isRunning = false
+            startStopButton.text = "开始计时"
+            taskNameInput.isEnabled = true
+            taskNameInput.setText("")
+        } else {
+            // 开始计时
+            val taskName = taskNameInput.text.toString()
+            if (taskName.isNotBlank()) {
+                startTime = System.currentTimeMillis()
+                timerDisplay.base = SystemClock.elapsedRealtime()
+                timerDisplay.start()
+                
+                isRunning = true
+                startStopButton.text = "停止计时"
+                taskNameInput.isEnabled = false
             }
         }
     }
     
-    val elapsedTime = if (isRunning) currentTime - startTime else 0L
-    val formattedTime = formatDuration(elapsedTime)
-    
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("计时记录") },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    titleContentColor = MaterialTheme.colorScheme.primary
-                )
-            )
-        }
-    ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            // 任务名称输入
-            OutlinedTextField(
-                value = taskName,
-                onValueChange = { taskName = it },
-                label = { Text("任务名称") },
-                modifier = Modifier.fillMaxWidth(),
-                enabled = !isRunning,
-                singleLine = true
-            )
-            
-            Spacer(modifier = Modifier.height(24.dp))
-            
-            // 计时显示
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = if (isRunning) 
-                        MaterialTheme.colorScheme.primaryContainer 
-                    else 
-                        MaterialTheme.colorScheme.surfaceVariant
-                )
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(32.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = formattedTime,
-                        fontSize = 48.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    if (isRunning) {
-                        Text(
-                            text = "计时中...",
-                            fontSize = 14.sp,
-                            color = MaterialTheme.colorScheme.secondary
-                        )
-                    }
-                }
-            }
-            
-            Spacer(modifier = Modifier.height(24.dp))
-            
-            // 开始/停止按钮
-            Button(
-                onClick = {
-                    if (isRunning) {
-                        // 停止计时
-                        val endTime = System.currentTimeMillis()
-                        val duration = endTime - startTime
-                        if (taskName.isNotBlank() && duration > 1000) {
-                            val record = TimeRecord(
-                                taskName = taskName,
-                                startTime = startTime,
-                                endTime = endTime,
-                                duration = duration
-                            )
-                            records = listOf(record) + records
-                        }
-                        isRunning = false
-                        taskName = ""
-                    } else {
-                        // 开始计时
-                        if (taskName.isNotBlank()) {
-                            startTime = System.currentTimeMillis()
-                            currentTime = startTime
-                            isRunning = true
-                        }
-                    }
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = if (isRunning) 
-                        MaterialTheme.colorScheme.error 
-                    else 
-                        MaterialTheme.colorScheme.primary
-                )
-            ) {
-                Text(
-                    text = if (isRunning) "停止计时" else "开始计时",
-                    fontSize = 18.sp
-                )
-            }
-            
-            Spacer(modifier = Modifier.height(24.dp))
-            
-            // 记录列表标题
-            Text(
-                text = "计时记录 (${records.size})",
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.align(Alignment.Start)
-            )
-            
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            // 记录列表
-            LazyColumn(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                items(records) { record ->
-                    RecordCard(record = record)
-                }
+    private fun addRecordView(record: TimeRecord) {
+        val recordView = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(16, 16, 16, 16)
+            setBackgroundColor(0xFFF5F5F5.toInt())
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                setMargins(0, 8, 0, 8)
             }
         }
+        
+        val nameText = TextView(this).apply {
+            text = record.taskName
+            textSize = 16f
+            setPadding(0, 0, 0, 4)
+        }
+        recordView.addView(nameText)
+        
+        val durationText = TextView(this).apply {
+            text = "时长: ${formatDuration(record.duration)}"
+            textSize = 14f
+            setTextColor(0xFF6750A4.toInt())
+        }
+        recordView.addView(durationText)
+        
+        val timeText = TextView(this).apply {
+            text = "${dateFormat.format(Date(record.startTime))} - ${dateFormat.format(Date(record.endTime))}"
+            textSize = 12f
+            setTextColor(0xFF79747E.toInt())
+        }
+        recordView.addView(timeText)
+        
+        recordsContainer.addView(recordView, 0)
     }
-}
-
-@Composable
-fun RecordCard(record: TimeRecord) {
-    val dateFormat = SimpleDateFormat("MM-dd HH:mm", Locale.getDefault())
     
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        )
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-        ) {
-            Text(
-                text = record.taskName,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "时长: ${formatDuration(record.duration)}",
-                fontSize = 14.sp,
-                color = MaterialTheme.colorScheme.primary
-            )
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(
-                text = "${dateFormat.format(Date(record.startTime))} - ${dateFormat.format(Date(record.endTime))}",
-                fontSize = 12.sp,
-                color = MaterialTheme.colorScheme.outline
-            )
-        }
+    private fun formatDuration(durationMs: Long): String {
+        val seconds = (durationMs / 1000) % 60
+        val minutes = (durationMs / (1000 * 60)) % 60
+        val hours = durationMs / (1000 * 60 * 60)
+        return String.format("%02d:%02d:%02d", hours, minutes, seconds)
     }
-}
-
-fun formatDuration(durationMs: Long): String {
-    val seconds = (durationMs / 1000) % 60
-    val minutes = (durationMs / (1000 * 60)) % 60
-    val hours = durationMs / (1000 * 60 * 60)
-    return String.format("%02d:%02d:%02d", hours, minutes, seconds)
 }
