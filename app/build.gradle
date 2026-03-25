@@ -11,13 +11,13 @@ android {
         applicationId "com.example.timetracker"
         minSdk 24
         targetSdk 34
-        versionCode 1
-        versionName "1.0"
+        versionCode System.getenv("GITHUB_RUN_NUMBER")?.toInteger() ?: 1
+        versionName "1.0.${System.getenv("GITHUB_RUN_NUMBER") ?: 0}"
     }
 
     signingConfigs {
         release {
-            storeFile file("keystore.jks")
+            storeFile file("timetracker.jks")
             storePassword System.getenv("KEYSTORE_PASSWORD") ?: "timetracker123"
             keyAlias System.getenv("KEY_ALIAS") ?: "timetracker"
             keyPassword System.getenv("KEY_PASSWORD") ?: "timetracker123"
