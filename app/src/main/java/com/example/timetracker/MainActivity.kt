@@ -59,6 +59,8 @@ class MainActivity : AppCompatActivity() {
             textSize = 48f
             gravity = android.view.Gravity.CENTER
             setPadding(32, 32, 32, 32)
+            // 使用等宽字体防止数字变化时抖动
+            typeface = android.graphics.Typeface.MONOSPACE
         }
         mainLayout.addView(timerDisplay)
         
