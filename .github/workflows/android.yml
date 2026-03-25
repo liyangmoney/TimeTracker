@@ -37,6 +37,7 @@ jobs:
         chmod +x ./gradlew 2>&1 | tee logs/02-gradlew.log
         echo "=== Step 2: Gradlew Permission ==="
         cat logs/02-gradlew.log
+        ls -la ./gradlew
 
     - name: Build Release APK
       env:
@@ -44,18 +45,9 @@ jobs:
         KEY_ALIAS: timetracker
         KEY_PASSWORD: timetracker123
       run: |
-        set -x
-        set -e
         echo "=== Starting Gradle Build ==="
-        bash ./gradlew assembleRelease --stacktrace --no-daemon 2>&1 | tee logs/03-build.log
-        BUILD_EXIT_CODE=${PIPESTATUS[0]}
-        echo "=== Build completed with exit code: $BUILD_EXIT_CODE ==="
-        if [ $BUILD_EXIT_CODE -ne 0 ]; then
-          echo "BUILD FAILED!"
-          exit $BUILD_EXIT_CODE
-        fi
-        echo "BUILD SUCCESS!"
-        echo "BUILD_EXIT_CODE=$BUILD_EXIT_CODE" >> $GITHUB_ENV
+        bash ./gradlew assembleRelease --stacktrace --no-daemon
+        echo "=== Build completed ==="
 
     - name: Check APK exists
       run: |
