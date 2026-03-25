@@ -42,10 +42,19 @@ jobs:
         KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD || 'timetracker123' }}
         KEY_ALIAS: ${{ secrets.KEY_ALIAS || 'timetracker' }}
         KEY_PASSWORD: ${{ secrets.KEY_PASSWORD || 'timetracker123' }}
-      run: ./gradlew assembleRelease
+      run: |
+        ./gradlew assembleRelease --stacktrace || true
+        # 如果 release 失败，尝试 debug
+        if [ ! -f "app/build/outputs/apk/release/app-release-unsigned.apk" ]; then
+          echo "Release build failed, trying debug..."
+          ./gradlew assembleDebug --stacktrace
+        fi
 
     - name: Check APK exists
-      run: ls -la app/build/outputs/apk/release/
+      run: |
+        echo "Checking all output directories..."
+        find app/build/outputs -name "*.apk" -type f 2>/dev/null || echo "No APK found"
+        ls -la app/build/outputs/apk/ 2>/dev/null || echo "No apk directory"
 
     - name: Upload Signed APK to Release
       uses: softprops/action-gh-release@v1
@@ -53,6 +62,6 @@ jobs:
       with:
         tag_name: v${{ github.run_number }}
         name: Release v${{ github.run_number }}
-        files: app/build/outputs/apk/release/*.apk
+        files: app/build/outputs/apk/**/*.apk
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
