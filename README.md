@@ -34,3 +34,7 @@ git clone https://github.com/liyangmoney/TimeTracker.git
 ## License
 
 MIT
+
+## Build Status
+
+Auto build triggered.
