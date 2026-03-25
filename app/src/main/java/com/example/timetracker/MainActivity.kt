@@ -176,32 +176,37 @@ class MainActivity : AppCompatActivity() {
     private fun showStats() {
         if (records.isEmpty()) {
             AlertDialog.Builder(this)
-                .setTitle("统计")
+                .setTitle("📊 统计")
                 .setMessage("暂无记录")
                 .setPositiveButton("确定", null)
                 .show()
             return
         }
-        
+
         val durations = records.map { it.duration }
         val min = durations.minOrNull() ?: 0
         val max = durations.maxOrNull() ?: 0
         val avg = durations.average().toLong()
         val total = durations.sum()
-        
+
         val message = """
-            记录数: ${records.size}
+            ━━━━━━━━━━━━━━━━━━━━━
+            📋 记录数: ${records.size}
+            ━━━━━━━━━━━━━━━━━━━━━
             
-            最短: ${formatDurationWithMs(min)}
-            最长: ${formatDurationWithMs(max)}
-            平均: ${formatDurationWithMs(avg)}
-            总计: ${formatDurationWithMs(total)}
+            ⏱️ 最短: ${formatDurationWithMs(min)}
+            ⏱️ 最长: ${formatDurationWithMs(max)}
+            ⏱️ 平均: ${formatDurationWithMs(avg)}
+            ━━━━━━━━━━━━━━━━━━━━━
+            
+            🔥 总计: ${formatDurationWithMs(total)}
+            ━━━━━━━━━━━━━━━━━━━━━
         """.trimIndent()
-        
+
         AlertDialog.Builder(this)
-            .setTitle("统计信息")
+            .setTitle("📊 统计信息")
             .setMessage(message)
-            .setPositiveButton("确定", null)
+            .setPositiveButton("✓ 确定", null)
             .show()
     }
     
